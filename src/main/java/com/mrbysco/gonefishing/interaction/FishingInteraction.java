@@ -18,17 +18,13 @@ import com.hypixel.hytale.protocol.SoundCategory;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.blockhitbox.BlockBoundingBoxes;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
-import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.model.config.Model;
 import com.hypixel.hytale.server.core.asset.type.model.config.ModelAsset;
 import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.entity.ItemUtils;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.entity.nameplate.Nameplate;
 import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.modules.entity.component.BoundingBox;
@@ -39,16 +35,14 @@ import com.hypixel.hytale.server.core.modules.entity.component.TransformComponen
 import com.hypixel.hytale.server.core.modules.entity.tracker.NetworkId;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.SimpleInstantInteraction;
-import com.hypixel.hytale.server.core.modules.interaction.interaction.config.client.SimpleBlockInteraction;
 import com.hypixel.hytale.server.core.modules.physics.component.PhysicsValues;
 import com.hypixel.hytale.server.core.modules.physics.component.Velocity;
+import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.TargetUtil;
-import com.hypixel.hytale.server.npc.util.InventoryHelper;
-import com.mrbysco.gonefishing.GoneFishingPlugin;
 import com.mrbysco.gonefishing.component.BobberComponent;
 import com.mrbysco.gonefishing.util.FishHelper;
 import org.checkerframework.checker.nullness.compatqual.NonNullDecl;
@@ -77,8 +71,10 @@ public class FishingInteraction extends SimpleInstantInteraction {
                 context.getState().state = InteractionState.Failed;
             } else {
                 Ref<EntityStore> ref = context.getEntity();
+                PlayerRef playerref = commandBuffer.getComponent(ref, PlayerRef.getComponentType());
                 Player player = commandBuffer.getComponent(ref, Player.getComponentType());
-                if (player == null) {
+
+                if (player == null || playerref == null) {
                     context.getState().state = InteractionState.Failed;
                     return;
                 }
@@ -100,10 +96,10 @@ public class FishingInteraction extends SimpleInstantInteraction {
                 FishingMetaData fishingMetaData = itemstack.getFromMetadataOrNull(FishingMetaData.KEY, FishingMetaData.CODEC);
                 if (fishingMetaData != null) {
                     // Handle the fishing rod reeling logic
-                    reelBobber(world, commandBuffer, hotbarItem, inventory, activeSlot, fishingMetaData, player);
+                    reelBobber(world, commandBuffer, hotbarItem, inventory, activeSlot, fishingMetaData, playerref);
                 } else {
                     int soundEventIndex = SoundEvent.getAssetMap().getIndex("SFX_GoneFishing_Cast");
-                    SoundUtil.playSoundEvent2dToPlayer(player.getPlayerRef(), soundEventIndex, SoundCategory.SFX);
+                    SoundUtil.playSoundEvent2dToPlayer(playerref, soundEventIndex, SoundCategory.SFX);
 
                     // Handle the fishing rod casting logic
                     spawnBobber(world, commandBuffer, context, hotbarItem, new Vector3i(blockposition.x, blockposition.y, blockposition.z), inventory, activeSlot);
@@ -124,12 +120,12 @@ public class FishingInteraction extends SimpleInstantInteraction {
      */
     private void reelBobber(@Nonnull World world, @Nonnull CommandBuffer<EntityStore> commandBuffer,
                             @Nonnull ItemStack hotbarItem, Inventory inventory, byte hotbarSlot,
-                            @Nonnull FishingMetaData fishingMetaData, @Nonnull Player player) {
+                            @Nonnull FishingMetaData fishingMetaData, @Nonnull PlayerRef playerRef) {
         // Remove old bobber and adjust metadata to unbind
         adjustMetadata(inventory, hotbarSlot, hotbarItem, null);
 
         int soundEventIndex = SoundEvent.getAssetMap().getIndex("SFX_GoneFishing_Reel");
-        SoundUtil.playSoundEvent2dToPlayer(player.getPlayerRef(), soundEventIndex, SoundCategory.SFX);
+        SoundUtil.playSoundEvent2dToPlayer(playerRef, soundEventIndex, SoundCategory.SFX);
 
         // Handle the bobber retrieval logic here
         Ref<EntityStore> bobberRef = world.getEntityStore().getRefFromUUID(fishingMetaData.getBoundBobber());
@@ -139,14 +135,14 @@ public class FishingInteraction extends SimpleInstantInteraction {
         BobberComponent component = commandBuffer.getComponent(bobberRef, BobberComponent.getComponentType());
         if (component == null || !component.canCatchFish()) {
             commandBuffer.removeEntity(bobberRef, RemoveReason.REMOVE);
-            player.sendMessage(Message.translation("gonefishing.tooEarly").color(Color.RED));
+            playerRef.sendMessage(Message.translation("gonefishing.tooEarly").color(Color.RED));
             return;
         }
 
         ItemStack fishStack = FishHelper.createRandomFish();
         if (!fishStack.isEmpty()) {
             ItemUtils.throwItem(bobberRef, fishStack, 5.0F, commandBuffer);
-            player.sendMessage(Message.translation("gonefishing.caughtFish").color(Color.GREEN).param("fish", Message.translation(fishStack.getItem().getTranslationKey())));
+            playerRef.sendMessage(Message.translation("gonefishing.caughtFish").color(Color.GREEN).param("fish", Message.translation(fishStack.getItem().getTranslationKey())));
         }
         commandBuffer.removeEntity(bobberRef, RemoveReason.REMOVE);
     }
