@@ -1,11 +1,15 @@
 package com.mrbysco.gonefishing.interaction;
 
+import com.hypixel.hytale.builtin.buildertools.interactions.PickupItemInteraction;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.AddReason;
 import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
+import com.hypixel.hytale.component.event.EventSystemType;
+import com.hypixel.hytale.component.system.EntityEventSystem;
+import com.hypixel.hytale.event.EventBus;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.math.vector.Vector3d;
@@ -15,6 +19,7 @@ import com.hypixel.hytale.protocol.BlockPosition;
 import com.hypixel.hytale.protocol.InteractionState;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.SoundCategory;
+import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.blockhitbox.BlockBoundingBoxes;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
@@ -25,6 +30,8 @@ import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.entity.ItemUtils;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.event.events.ecs.InteractivelyPickupItemEvent;
+import com.hypixel.hytale.server.core.event.events.player.PlayerInteractEvent;
 import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.modules.entity.component.BoundingBox;
@@ -32,6 +39,7 @@ import com.hypixel.hytale.server.core.modules.entity.component.HeadRotation;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentModel;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
+import com.hypixel.hytale.server.core.modules.entity.player.PlayerItemEntityPickupSystem;
 import com.hypixel.hytale.server.core.modules.entity.tracker.NetworkId;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.SimpleInstantInteraction;
@@ -43,6 +51,8 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.TargetUtil;
+import com.hypixel.hytale.server.npc.systems.MessageSupportSystem;
+import com.mrbysco.gonefishing.GoneFishingPlugin;
 import com.mrbysco.gonefishing.component.BobberComponent;
 import com.mrbysco.gonefishing.util.FishHelper;
 import org.checkerframework.checker.nullness.compatqual.NonNullDecl;
@@ -141,7 +151,19 @@ public class FishingInteraction extends SimpleInstantInteraction {
 
 		ItemStack fishStack = FishHelper.createRandomFish();
 		if (!fishStack.isEmpty()) {
-			ItemUtils.throwItem(bobberRef, fishStack, 5.0F, commandBuffer);
+			var ref = playerRef.getReference();
+			if (ref != null) {
+				// Fire an event before picking up the item
+				ItemUtils.interactivelyPickupItem(
+						playerRef.getReference(),
+						fishStack,
+						null,
+						commandBuffer
+				);
+			} else {
+				// Fallback: throw the item towards the player
+				ItemUtils.throwItem(bobberRef, fishStack, 5.0F, commandBuffer);
+			}
 			playerRef.sendMessage(Message.translation("gonefishing.caughtFish").color(Color.GREEN).param("fish", Message.translation(fishStack.getItem().getTranslationKey())));
 		}
 		commandBuffer.removeEntity(bobberRef, RemoveReason.REMOVE);
