@@ -14,6 +14,7 @@ public class FishHelper {
 	private static final Map<String, Float> FISHES = new HashMap<>();
 	private static int minFishingTime = 100;
 	private static int maxFishingTime = 600;
+	private static boolean canRelease = true;
 
 	/**
 	 * Create the default fish table with predefined weights.
@@ -67,6 +68,7 @@ public class FishHelper {
 
 		minFishingTime = config.minFishingTime;
 		maxFishingTime = config.maxFishingTime;
+		canRelease = config.canRelease;
 	}
 
 	/**
@@ -114,5 +116,9 @@ public class FishHelper {
 
 	public static int getTimeUntilCatch() {
 		return RANDOM.nextInt((maxFishingTime - minFishingTime) + 1) + minFishingTime;
+	}
+
+	public static boolean canReleaseFish() {
+		return canRelease;
 	}
 }
