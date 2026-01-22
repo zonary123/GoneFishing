@@ -28,11 +28,6 @@ public class GoneFishingPlugin extends JavaPlugin {
 	}
 
 	@Override
-	protected void shutdown() {
-
-	}
-
-	@Override
 	protected void setup() {
 		LOGGER.atInfo().log("Setting up Bobber component");
 		bobberComponent = this.getEntityStoreRegistry().registerComponent(BobberComponent.class, BobberComponent::new);
@@ -40,7 +35,6 @@ public class GoneFishingPlugin extends JavaPlugin {
 		this.getCodecRegistry(Interaction.CODEC).register("GoneFishingFish", FishingInteraction.class, FishingInteraction.CODEC);
 		LOGGER.atInfo().log("Registering Bobber System");
 		this.getEntityStoreRegistry().registerSystem(new BobberSystem());
-
 	}
 
 	@Override
